@@ -1,0 +1,12 @@
+[package]
+name = "gmssl"
+version = "0.1.0"
+edition = "2021"
+description = "Safe, idiomatic Rust wrapper for the GmSSL cryptographic library (SM2/SM3/SM4/SM9/ZUC/X.509)"
+
+[dependencies]
+gmssl-sys = { path = "../gmssl-sys" }
+libc = "0.2"
+
+[dev-dependencies]
+hex = "0.4"

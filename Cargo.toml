@@ -1,0 +1,3 @@
+[workspace]
+members = ["gmssl-sys", "gmssl"]
+resolver = "2"
