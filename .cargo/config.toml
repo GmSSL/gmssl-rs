@@ -1,5 +1,28 @@
+# Cargo configuration for gmssl-rs
+#
+# No hardcoded target — Cargo auto-detects the host platform at build time.
+# The project builds natively on:
+#   - macOS   (aarch64 / x86_64)
+#   - Linux   (aarch64 / x86_64)
+#   - Windows (aarch64 / x86_64)
+#
+# Cross-compilation is supported by setting the --target flag:
+#   cargo build --target x86_64-unknown-linux-gnu
+
 [build]
-target = "aarch64-apple-darwin"
+# Let Cargo auto-detect the host target. No explicit `target` set.
 
 [target.aarch64-apple-darwin]
-rustflags = []
+# macOS Apple Silicon — link Security.framework (handled in build.rs)
+
+[target.x86_64-apple-darwin]
+# macOS Intel — link Security.framework (handled in build.rs)
+
+[target.x86_64-unknown-linux-gnu]
+# Linux x86_64 — standard GNU toolchain
+
+[target.aarch64-unknown-linux-gnu]
+# Linux ARM64 — standard GNU toolchain
+
+[target.x86_64-pc-windows-msvc]
+# Windows x86_64 MSVC — link bcrypt, ncrypt (handled in build.rs)
