@@ -125,13 +125,10 @@ fn main() {
     // ========================================================================
     // 5. Emit link directives
     // ========================================================================
-    let lib_dir = dst.join("lib");
-    assert!(
-        lib_dir.exists(),
-        "CMake build completed but no lib/ directory found at {}. \
-         Check the GmSSL CMake output above for errors.",
-        lib_dir.display()
-    );
+    // MSVC multi-config generators (Visual Studio) place libraries in
+    // lib/<Config>/ (e.g. lib/Debug/gmssl.lib). Single-config generators
+    // (Makefiles, Ninja) place them directly in lib/.
+    let lib_dir = find_lib_dir(&dst);
 
     println!("cargo:rustc-link-search=native={}", lib_dir.display());
     println!("cargo:rustc-link-lib=static=gmssl");
@@ -154,6 +151,35 @@ fn main() {
     println!("cargo:rerun-if-env-changed=GMSSL_DIR");
     println!("cargo:rerun-if-env-changed=GMSSL_CMAKE_DEFINES");
     println!("cargo:rerun-if-changed=build.rs");
+}
+
+/// Find the directory containing the compiled `gmssl` library.
+///
+/// MSVC multi-config generators place libraries in `lib/<Config>/`
+/// (e.g. `lib/Debug/gmssl.lib`), while single-config generators
+/// (Makefiles, Ninja) use `lib/` directly.
+fn find_lib_dir(prefix: &PathBuf) -> PathBuf {
+    // Try the simple layout first (Makefiles, Ninja).
+    let lib = prefix.join("lib");
+    if lib.join("libgmssl.a").exists()
+        || lib.join("libgmssl.so").exists()
+        || lib.join("libgmssl.dylib").exists()
+        || lib.join("gmssl.lib").exists()
+    {
+        return lib;
+    }
+    // MSVC multi-config: check lib/Debug/ and lib/Release/.
+    for config in &["Debug", "Release", "MinSizeRel", "RelWithDebInfo"] {
+        let cfg_lib = prefix.join("lib").join(config);
+        if cfg_lib.join("gmssl.lib").exists() {
+            return cfg_lib;
+        }
+    }
+    panic!(
+        "GmSSL library not found under {}/lib/. \
+         Check the CMake build output above for errors.",
+        prefix.display()
+    );
 }
 
 /// Locate the GmSSL source tree, downloading it if necessary.
