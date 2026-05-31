@@ -1,7 +1,7 @@
 // Cryptographically secure random number generation.
 
 use crate::error::{ok_or_library_error, GmsslError};
-use gmssl_sys::rand_bytes as ffi_rand_bytes;
+use gmssl_rs_sys::rand_bytes as ffi_rand_bytes;
 
 /// Fill `buf` with cryptographically secure random bytes.
 ///
@@ -10,7 +10,7 @@ use gmssl_sys::rand_bytes as ffi_rand_bytes;
 /// # Examples
 ///
 /// ```no_run
-/// use gmssl::rand_bytes;
+/// use gmssl_rs::rand_bytes;
 /// let mut buf = [0u8; 32];
 /// rand_bytes(&mut buf).unwrap();
 /// ```

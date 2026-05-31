@@ -6,7 +6,7 @@
 
 use std::mem::MaybeUninit;
 
-use gmssl_sys;
+use gmssl_rs_sys;
 
 use crate::error::{ok_or_library_error, GmsslError};
 
@@ -15,8 +15,8 @@ use crate::error::{ok_or_library_error, GmsslError};
 /// Used for single-block encrypt/decrypt or as a building block for cipher modes.
 #[derive(Debug)]
 pub struct Sm4Key {
-    enc_key: MaybeUninit<gmssl_sys::SM4_KEY>,
-    dec_key: MaybeUninit<gmssl_sys::SM4_KEY>,
+    enc_key: MaybeUninit<gmssl_rs_sys::SM4_KEY>,
+    dec_key: MaybeUninit<gmssl_rs_sys::SM4_KEY>,
 }
 
 impl Sm4Key {
@@ -25,8 +25,8 @@ impl Sm4Key {
         let mut enc_key = MaybeUninit::uninit();
         let mut dec_key = MaybeUninit::uninit();
         unsafe {
-            gmssl_sys::sm4_set_encrypt_key(enc_key.as_mut_ptr(), key.as_ptr());
-            gmssl_sys::sm4_set_decrypt_key(dec_key.as_mut_ptr(), key.as_ptr());
+            gmssl_rs_sys::sm4_set_encrypt_key(enc_key.as_mut_ptr(), key.as_ptr());
+            gmssl_rs_sys::sm4_set_decrypt_key(dec_key.as_mut_ptr(), key.as_ptr());
         }
         Sm4Key { enc_key, dec_key }
     }
@@ -35,7 +35,7 @@ impl Sm4Key {
     pub fn encrypt_block(&self, block: &[u8; 16]) -> [u8; 16] {
         let mut out = [0u8; 16];
         unsafe {
-            gmssl_sys::sm4_encrypt(self.enc_key.as_ptr(), block.as_ptr(), out.as_mut_ptr());
+            gmssl_rs_sys::sm4_encrypt(self.enc_key.as_ptr(), block.as_ptr(), out.as_mut_ptr());
         }
         out
     }
@@ -44,7 +44,7 @@ impl Sm4Key {
     pub fn decrypt_block(&self, block: &[u8; 16]) -> [u8; 16] {
         let mut out = [0u8; 16];
         unsafe {
-            gmssl_sys::sm4_encrypt(self.dec_key.as_ptr(), block.as_ptr(), out.as_mut_ptr());
+            gmssl_rs_sys::sm4_encrypt(self.dec_key.as_ptr(), block.as_ptr(), out.as_mut_ptr());
         }
         out
     }
@@ -53,7 +53,7 @@ impl Sm4Key {
 /// SM4-CBC streaming encryptor.
 #[derive(Debug)]
 pub struct Sm4CbcEncryptor {
-    ctx: MaybeUninit<gmssl_sys::SM4_CBC_CTX>,
+    ctx: MaybeUninit<gmssl_rs_sys::SM4_CBC_CTX>,
     inited: bool,
 }
 
@@ -62,7 +62,7 @@ impl Sm4CbcEncryptor {
     pub fn new(key: &[u8; 16], iv: &[u8; 16]) -> Result<Self, GmsslError> {
         let mut ctx = MaybeUninit::uninit();
         let ret = unsafe {
-            gmssl_sys::sm4_cbc_encrypt_init(ctx.as_mut_ptr(), key.as_ptr(), iv.as_ptr())
+            gmssl_rs_sys::sm4_cbc_encrypt_init(ctx.as_mut_ptr(), key.as_ptr(), iv.as_ptr())
         };
         ok_or_library_error(ret, "sm4_cbc_encrypt_init")?;
         Ok(Sm4CbcEncryptor { ctx, inited: true })
@@ -74,11 +74,11 @@ impl Sm4CbcEncryptor {
         if !self.inited {
             return Err(GmsslError::InvalidInput("encryptor not initialized"));
         }
-        let out_len = input.len() + gmssl_sys::SM4_BLOCK_SIZE;
+        let out_len = input.len() + gmssl_rs_sys::SM4_BLOCK_SIZE;
         let mut out = vec![0u8; out_len];
         let mut outlen: usize = 0;
         let ret = unsafe {
-            gmssl_sys::sm4_cbc_encrypt_update(
+            gmssl_rs_sys::sm4_cbc_encrypt_update(
                 self.ctx.as_mut_ptr(),
                 input.as_ptr(),
                 input.len(),
@@ -97,10 +97,10 @@ impl Sm4CbcEncryptor {
             return Err(GmsslError::InvalidInput("encryptor not initialized"));
         }
         self.inited = false;
-        let mut out = vec![0u8; gmssl_sys::SM4_BLOCK_SIZE * 2];
+        let mut out = vec![0u8; gmssl_rs_sys::SM4_BLOCK_SIZE * 2];
         let mut outlen: usize = 0;
         let ret = unsafe {
-            gmssl_sys::sm4_cbc_encrypt_finish(
+            gmssl_rs_sys::sm4_cbc_encrypt_finish(
                 self.ctx.as_mut_ptr(),
                 out.as_mut_ptr(),
                 &mut outlen,
@@ -119,11 +119,11 @@ pub fn sm4_cbc_padding_encrypt(
     data: &[u8],
 ) -> Result<Vec<u8>, GmsslError> {
     let sm4_key = Sm4Key::new(key);
-    let out_len = data.len() + gmssl_sys::SM4_BLOCK_SIZE * 2;
+    let out_len = data.len() + gmssl_rs_sys::SM4_BLOCK_SIZE * 2;
     let mut out = vec![0u8; out_len];
     let mut outlen: usize = out_len;
     let ret = unsafe {
-        gmssl_sys::sm4_cbc_padding_encrypt(
+        gmssl_rs_sys::sm4_cbc_padding_encrypt(
             sm4_key.enc_key.as_ptr(),
             iv.as_ptr(),
             data.as_ptr(),
@@ -140,7 +140,7 @@ pub fn sm4_cbc_padding_encrypt(
 /// SM4-CBC streaming decryptor.
 #[derive(Debug)]
 pub struct Sm4CbcDecryptor {
-    ctx: MaybeUninit<gmssl_sys::SM4_CBC_CTX>,
+    ctx: MaybeUninit<gmssl_rs_sys::SM4_CBC_CTX>,
     inited: bool,
 }
 
@@ -149,7 +149,7 @@ impl Sm4CbcDecryptor {
     pub fn new(key: &[u8; 16], iv: &[u8; 16]) -> Result<Self, GmsslError> {
         let mut ctx = MaybeUninit::uninit();
         let ret = unsafe {
-            gmssl_sys::sm4_cbc_decrypt_init(ctx.as_mut_ptr(), key.as_ptr(), iv.as_ptr())
+            gmssl_rs_sys::sm4_cbc_decrypt_init(ctx.as_mut_ptr(), key.as_ptr(), iv.as_ptr())
         };
         ok_or_library_error(ret, "sm4_cbc_decrypt_init")?;
         Ok(Sm4CbcDecryptor { ctx, inited: true })
@@ -160,11 +160,11 @@ impl Sm4CbcDecryptor {
         if !self.inited {
             return Err(GmsslError::InvalidInput("decryptor not initialized"));
         }
-        let out_len = input.len() + gmssl_sys::SM4_BLOCK_SIZE;
+        let out_len = input.len() + gmssl_rs_sys::SM4_BLOCK_SIZE;
         let mut out = vec![0u8; out_len];
         let mut outlen: usize = 0;
         let ret = unsafe {
-            gmssl_sys::sm4_cbc_decrypt_update(
+            gmssl_rs_sys::sm4_cbc_decrypt_update(
                 self.ctx.as_mut_ptr(),
                 input.as_ptr(),
                 input.len(),
@@ -183,10 +183,10 @@ impl Sm4CbcDecryptor {
             return Err(GmsslError::InvalidInput("decryptor not initialized"));
         }
         self.inited = false;
-        let mut out = vec![0u8; gmssl_sys::SM4_BLOCK_SIZE * 2];
+        let mut out = vec![0u8; gmssl_rs_sys::SM4_BLOCK_SIZE * 2];
         let mut outlen: usize = 0;
         let ret = unsafe {
-            gmssl_sys::sm4_cbc_decrypt_finish(
+            gmssl_rs_sys::sm4_cbc_decrypt_finish(
                 self.ctx.as_mut_ptr(),
                 out.as_mut_ptr(),
                 &mut outlen,
@@ -205,11 +205,11 @@ pub fn sm4_cbc_padding_decrypt(
     data: &[u8],
 ) -> Result<Vec<u8>, GmsslError> {
     let sm4_key = Sm4Key::new(key);
-    let out_len = data.len() + gmssl_sys::SM4_BLOCK_SIZE;
+    let out_len = data.len() + gmssl_rs_sys::SM4_BLOCK_SIZE;
     let mut out = vec![0u8; out_len];
     let mut outlen: usize = out_len;
     let ret = unsafe {
-        gmssl_sys::sm4_cbc_padding_decrypt(
+        gmssl_rs_sys::sm4_cbc_padding_decrypt(
             sm4_key.dec_key.as_ptr(),
             iv.as_ptr(),
             data.as_ptr(),
@@ -243,7 +243,7 @@ impl Sm4Cbc {
 /// CTR mode uses the same operation for both encryption and decryption.
 #[derive(Debug)]
 pub struct Sm4Ctr {
-    ctx: MaybeUninit<gmssl_sys::SM4_CTR_CTX>,
+    ctx: MaybeUninit<gmssl_rs_sys::SM4_CTR_CTX>,
     inited: bool,
 }
 
@@ -252,7 +252,7 @@ impl Sm4Ctr {
     pub fn new(key: &[u8; 16], ctr: &[u8; 16]) -> Result<Self, GmsslError> {
         let mut ctx = MaybeUninit::uninit();
         let ret = unsafe {
-            gmssl_sys::sm4_ctr_encrypt_init(ctx.as_mut_ptr(), key.as_ptr(), ctr.as_ptr())
+            gmssl_rs_sys::sm4_ctr_encrypt_init(ctx.as_mut_ptr(), key.as_ptr(), ctr.as_ptr())
         };
         ok_or_library_error(ret, "sm4_ctr_encrypt_init")?;
         Ok(Sm4Ctr { ctx, inited: true })
@@ -263,11 +263,11 @@ impl Sm4Ctr {
         if !self.inited {
             return Err(GmsslError::InvalidInput("CTR context not initialized"));
         }
-        let out_len = input.len() + gmssl_sys::SM4_BLOCK_SIZE;
+        let out_len = input.len() + gmssl_rs_sys::SM4_BLOCK_SIZE;
         let mut out = vec![0u8; out_len];
         let mut outlen: usize = 0;
         let ret = unsafe {
-            gmssl_sys::sm4_ctr_encrypt_update(
+            gmssl_rs_sys::sm4_ctr_encrypt_update(
                 self.ctx.as_mut_ptr(),
                 input.as_ptr(),
                 input.len(),
@@ -286,10 +286,10 @@ impl Sm4Ctr {
             return Err(GmsslError::InvalidInput("CTR context not initialized"));
         }
         self.inited = false;
-        let mut out = vec![0u8; gmssl_sys::SM4_BLOCK_SIZE];
+        let mut out = vec![0u8; gmssl_rs_sys::SM4_BLOCK_SIZE];
         let mut outlen: usize = 0;
         let ret = unsafe {
-            gmssl_sys::sm4_ctr_encrypt_finish(
+            gmssl_rs_sys::sm4_ctr_encrypt_finish(
                 self.ctx.as_mut_ptr(),
                 out.as_mut_ptr(),
                 &mut outlen,
@@ -306,7 +306,7 @@ impl Sm4Ctr {
         let mut out = vec![0u8; data.len()];
         let mut iv = *ctr;
         unsafe {
-            gmssl_sys::sm4_ctr_encrypt(
+            gmssl_rs_sys::sm4_ctr_encrypt(
                 sm4_key.enc_key.as_ptr(),
                 iv.as_mut_ptr(),
                 data.as_ptr(),
@@ -340,16 +340,16 @@ impl Sm4Gcm {
         plaintext: &[u8],
         tag_len: usize,
     ) -> Result<Sm4GcmEncryptResult, GmsslError> {
-        if key.len() != gmssl_sys::SM4_KEY_SIZE {
+        if key.len() != gmssl_rs_sys::SM4_KEY_SIZE {
             return Err(GmsslError::InvalidKey("SM4 key must be 16 bytes"));
         }
 
         let sm4_key = Sm4Key::new(key.try_into().unwrap());
-        let mut ciphertext = vec![0u8; plaintext.len() + gmssl_sys::SM4_BLOCK_SIZE];
+        let mut ciphertext = vec![0u8; plaintext.len() + gmssl_rs_sys::SM4_BLOCK_SIZE];
         let mut tag = vec![0u8; tag_len];
 
         let ret = unsafe {
-            gmssl_sys::sm4_gcm_encrypt(
+            gmssl_rs_sys::sm4_gcm_encrypt(
                 sm4_key.enc_key.as_ptr(),
                 iv.as_ptr(),
                 iv.len(),
@@ -376,7 +376,7 @@ impl Sm4Gcm {
         tag: &[u8],
         ciphertext: &[u8],
     ) -> Result<Vec<u8>, GmsslError> {
-        if key.len() != gmssl_sys::SM4_KEY_SIZE {
+        if key.len() != gmssl_rs_sys::SM4_KEY_SIZE {
             return Err(GmsslError::InvalidKey("SM4 key must be 16 bytes"));
         }
 
@@ -384,7 +384,7 @@ impl Sm4Gcm {
         let mut plaintext = vec![0u8; ciphertext.len()];
 
         let ret = unsafe {
-            gmssl_sys::sm4_gcm_decrypt(
+            gmssl_rs_sys::sm4_gcm_decrypt(
                 sm4_key.enc_key.as_ptr(),
                 iv.as_ptr(),
                 iv.len(),

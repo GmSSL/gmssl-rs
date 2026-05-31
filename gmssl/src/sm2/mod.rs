@@ -5,7 +5,7 @@
 // and key exchange on the sm2p256v1 curve.
 
 use std::mem::MaybeUninit;
-use gmssl_sys;
+use gmssl_rs_sys;
 
 use crate::error::{ok_or_library_error, verify_result, GmsslError};
 use crate::pem_helpers;
@@ -13,7 +13,7 @@ use crate::pem_helpers;
 /// SM2 key pair (public + optional private key).
 #[derive(Debug)]
 pub struct Sm2Key {
-    key: gmssl_sys::SM2_KEY,
+    key: gmssl_rs_sys::SM2_KEY,
     has_private_key: bool,
 }
 
@@ -22,7 +22,7 @@ impl Sm2Key {
     pub fn generate() -> Result<Self, GmsslError> {
         let mut key = MaybeUninit::uninit();
         ok_or_library_error(
-            unsafe { gmssl_sys::sm2_key_generate(key.as_mut_ptr()) },
+            unsafe { gmssl_rs_sys::sm2_key_generate(key.as_mut_ptr()) },
             "sm2_key_generate",
         )?;
         Ok(Sm2Key {
@@ -41,7 +41,7 @@ impl Sm2Key {
 
         let mut key = MaybeUninit::uninit();
         pem_helpers::read_pem_data(pem_data, |fp| unsafe {
-            gmssl_sys::sm2_private_key_info_decrypt_from_pem(
+            gmssl_rs_sys::sm2_private_key_info_decrypt_from_pem(
                 key.as_mut_ptr(),
                 pass_c.as_ptr(),
                 fp,
@@ -50,7 +50,7 @@ impl Sm2Key {
         // Re-read because read_pem_data closes the fp first; we need the return code
         let fp = unsafe { pem_helpers::file_from_bytes(pem_data)? };
         let ret = unsafe {
-            gmssl_sys::sm2_private_key_info_decrypt_from_pem(
+            gmssl_rs_sys::sm2_private_key_info_decrypt_from_pem(
                 key.as_mut_ptr(),
                 pass_c.as_ptr(),
                 fp,
@@ -77,7 +77,7 @@ impl Sm2Key {
 
         unsafe {
             pem_helpers::collect_to_bytes(|fp| {
-                gmssl_sys::sm2_private_key_info_encrypt_to_pem(
+                gmssl_rs_sys::sm2_private_key_info_encrypt_to_pem(
                     &self.key,
                     pass_c.as_ptr(),
                     fp,
@@ -91,7 +91,7 @@ impl Sm2Key {
         let mut key = MaybeUninit::uninit();
         let fp = unsafe { pem_helpers::file_from_bytes(pem_data)? };
         let ret = unsafe {
-            gmssl_sys::sm2_public_key_info_from_pem(key.as_mut_ptr(), fp)
+            gmssl_rs_sys::sm2_public_key_info_from_pem(key.as_mut_ptr(), fp)
         };
         unsafe { libc::fclose(fp) };
         ok_or_library_error(ret, "sm2_public_key_info_from_pem")?;
@@ -105,7 +105,7 @@ impl Sm2Key {
     pub fn to_public_key_pem(&self) -> Result<Vec<u8>, GmsslError> {
         unsafe {
             pem_helpers::collect_to_bytes(|fp| {
-                gmssl_sys::sm2_public_key_info_to_pem(&self.key, fp)
+                gmssl_rs_sys::sm2_public_key_info_to_pem(&self.key, fp)
             })
         }
     }
@@ -115,7 +115,7 @@ impl Sm2Key {
         let mut key = MaybeUninit::uninit();
         let fp = unsafe { pem_helpers::file_from_bytes(pem_data)? };
         let ret = unsafe {
-            gmssl_sys::sm2_private_key_info_from_pem(key.as_mut_ptr(), fp)
+            gmssl_rs_sys::sm2_private_key_info_from_pem(key.as_mut_ptr(), fp)
         };
         unsafe { libc::fclose(fp) };
         ok_or_library_error(ret, "sm2_private_key_info_from_pem")?;
@@ -132,7 +132,7 @@ impl Sm2Key {
         }
         unsafe {
             pem_helpers::collect_to_bytes(|fp| {
-                gmssl_sys::sm2_private_key_info_to_pem(&self.key, fp)
+                gmssl_rs_sys::sm2_private_key_info_to_pem(&self.key, fp)
             })
         }
     }
@@ -141,7 +141,7 @@ impl Sm2Key {
     pub fn from_public_key_der(der: &[u8]) -> Result<Self, GmsslError> {
         unsafe {
             pem_helpers::parse_der(der, |key, pin, pinlen| {
-                gmssl_sys::sm2_public_key_info_from_der(key, pin, pinlen)
+                gmssl_rs_sys::sm2_public_key_info_from_der(key, pin, pinlen)
             })
         }
         .map(|key| Sm2Key {
@@ -154,7 +154,7 @@ impl Sm2Key {
     pub fn to_public_key_der(&self) -> Result<Vec<u8>, GmsslError> {
         unsafe {
             pem_helpers::collect_der(512, |out, outlen| {
-                gmssl_sys::sm2_public_key_info_to_der(&self.key, out, outlen)
+                gmssl_rs_sys::sm2_public_key_info_to_der(&self.key, out, outlen)
             })
         }
     }
@@ -165,7 +165,7 @@ impl Sm2Key {
             let mut attrs: *const u8 = std::ptr::null();
             let mut attrslen: usize = 0;
             pem_helpers::parse_der(der, |key, pin, pinlen| {
-                gmssl_sys::sm2_private_key_info_from_der(
+                gmssl_rs_sys::sm2_private_key_info_from_der(
                     key,
                     &mut attrs,
                     &mut attrslen,
@@ -187,7 +187,7 @@ impl Sm2Key {
         }
         unsafe {
             pem_helpers::collect_der(512, |out, outlen| {
-                gmssl_sys::sm2_private_key_info_to_der(&self.key, out, outlen)
+                gmssl_rs_sys::sm2_private_key_info_to_der(&self.key, out, outlen)
             })
         }
     }
@@ -197,7 +197,7 @@ impl Sm2Key {
         let mut key = MaybeUninit::uninit();
         let fp = unsafe { pem_helpers::file_open_read(path)? };
         let ret = unsafe {
-            gmssl_sys::sm2_public_key_info_from_pem(key.as_mut_ptr(), fp)
+            gmssl_rs_sys::sm2_public_key_info_from_pem(key.as_mut_ptr(), fp)
         };
         unsafe { libc::fclose(fp) };
         ok_or_library_error(ret, "sm2_public_key_info_from_pem")?;
@@ -211,7 +211,7 @@ impl Sm2Key {
     pub fn to_public_key_pem_file(&self, path: &str) -> Result<(), GmsslError> {
         let fp = unsafe { pem_helpers::file_open_write(path)? };
         let ret = unsafe {
-            gmssl_sys::sm2_public_key_info_to_pem(&self.key, fp)
+            gmssl_rs_sys::sm2_public_key_info_to_pem(&self.key, fp)
         };
         unsafe { libc::fclose(fp) };
         ok_or_library_error(ret, "sm2_public_key_info_to_pem")
@@ -227,7 +227,7 @@ impl Sm2Key {
         let mut key = MaybeUninit::uninit();
         let fp = unsafe { pem_helpers::file_open_read(path)? };
         let ret = unsafe {
-            gmssl_sys::sm2_private_key_info_decrypt_from_pem(
+            gmssl_rs_sys::sm2_private_key_info_decrypt_from_pem(
                 key.as_mut_ptr(),
                 pass_c.as_ptr(),
                 fp,
@@ -254,7 +254,7 @@ impl Sm2Key {
             .map_err(|_| GmsslError::InvalidInput("password contains NUL byte"))?;
         let fp = unsafe { pem_helpers::file_open_write(path)? };
         let ret = unsafe {
-            gmssl_sys::sm2_private_key_info_encrypt_to_pem(
+            gmssl_rs_sys::sm2_private_key_info_encrypt_to_pem(
                 &self.key,
                 pass_c.as_ptr(),
                 fp,
@@ -271,7 +271,7 @@ impl Sm2Key {
         let mut z = [0u8; 32];
         ok_or_library_error(
             unsafe {
-                gmssl_sys::sm2_compute_z(
+                gmssl_rs_sys::sm2_compute_z(
                     z.as_mut_ptr(),
                     &self.key.public_key,
                     id_c.as_ptr(),
@@ -289,7 +289,7 @@ impl Sm2Key {
     }
 
     // Internal: get raw key pointer
-    pub(crate) fn as_ptr(&self) -> *const gmssl_sys::SM2_KEY {
+    pub(crate) fn as_ptr(&self) -> *const gmssl_rs_sys::SM2_KEY {
         &self.key
     }
 }
@@ -300,7 +300,7 @@ impl Sm2Key {
 /// The signer computes SM3(Z || message) internally, where Z is derived from
 /// the signer's identity and public key per GM/T 0003.5.
 pub struct Sm2Signer {
-    ctx: Box<MaybeUninit<gmssl_sys::SM2_SIGN_CTX>>,
+    ctx: Box<MaybeUninit<gmssl_rs_sys::SM2_SIGN_CTX>>,
 }
 
 impl Sm2Signer {
@@ -319,7 +319,7 @@ impl Sm2Signer {
         let mut ctx = Box::new(MaybeUninit::uninit());
         ok_or_library_error(
             unsafe {
-                gmssl_sys::sm2_sign_init(
+                gmssl_rs_sys::sm2_sign_init(
                     ctx.as_mut_ptr(),
                     key.as_ptr(),
                     id_c.as_ptr(),
@@ -335,7 +335,7 @@ impl Sm2Signer {
     pub fn update(&mut self, data: &[u8]) -> Result<(), GmsslError> {
         ok_or_library_error(
             unsafe {
-                gmssl_sys::sm2_sign_update(self.ctx.as_mut_ptr(), data.as_ptr(), data.len())
+                gmssl_rs_sys::sm2_sign_update(self.ctx.as_mut_ptr(), data.as_ptr(), data.len())
             },
             "sm2_sign_update",
         )
@@ -343,11 +343,11 @@ impl Sm2Signer {
 
     /// Finalize and produce the DER-encoded signature.
     pub fn finish(&mut self) -> Result<Vec<u8>, GmsslError> {
-        let mut sig = vec![0u8; gmssl_sys::SM2_MAX_SIGNATURE_SIZE];
+        let mut sig = vec![0u8; gmssl_rs_sys::SM2_MAX_SIGNATURE_SIZE];
         let mut siglen: usize = sig.len();
         ok_or_library_error(
             unsafe {
-                gmssl_sys::sm2_sign_finish(
+                gmssl_rs_sys::sm2_sign_finish(
                     self.ctx.as_mut_ptr(),
                     sig.as_mut_ptr(),
                     &mut siglen,
@@ -377,7 +377,7 @@ impl std::fmt::Debug for Sm2Signer {
 
 /// SM2 streaming verifier.
 pub struct Sm2Verifier {
-    ctx: Box<MaybeUninit<gmssl_sys::SM2_VERIFY_CTX>>,
+    ctx: Box<MaybeUninit<gmssl_rs_sys::SM2_VERIFY_CTX>>,
 }
 
 impl Sm2Verifier {
@@ -390,7 +390,7 @@ impl Sm2Verifier {
         let mut ctx = Box::new(MaybeUninit::uninit());
         ok_or_library_error(
             unsafe {
-                gmssl_sys::sm2_verify_init(
+                gmssl_rs_sys::sm2_verify_init(
                     ctx.as_mut_ptr(),
                     key.as_ptr(),
                     id_c.as_ptr(),
@@ -406,7 +406,7 @@ impl Sm2Verifier {
     pub fn update(&mut self, data: &[u8]) -> Result<(), GmsslError> {
         ok_or_library_error(
             unsafe {
-                gmssl_sys::sm2_verify_update(self.ctx.as_mut_ptr(), data.as_ptr(), data.len())
+                gmssl_rs_sys::sm2_verify_update(self.ctx.as_mut_ptr(), data.as_ptr(), data.len())
             },
             "sm2_verify_update",
         )
@@ -418,7 +418,7 @@ impl Sm2Verifier {
     pub fn finish(&mut self, sig: &[u8]) -> Result<bool, GmsslError> {
         verify_result(
             unsafe {
-                gmssl_sys::sm2_verify_finish(
+                gmssl_rs_sys::sm2_verify_finish(
                     self.ctx.as_mut_ptr(),
                     sig.as_ptr(),
                     sig.len(),
@@ -452,16 +452,16 @@ impl std::fmt::Debug for Sm2Verifier {
 /// Encrypts data for the given public key. Maximum plaintext size is 255 bytes
 /// (SM2 ciphertext format limitation).
 pub fn sm2_encrypt(key: &Sm2Key, data: &[u8]) -> Result<Vec<u8>, GmsslError> {
-    if data.len() > gmssl_sys::SM2_MAX_PLAINTEXT_SIZE {
+    if data.len() > gmssl_rs_sys::SM2_MAX_PLAINTEXT_SIZE {
         return Err(GmsslError::InvalidInput(
             "SM2 plaintext exceeds 255 bytes maximum",
         ));
     }
-    let mut out = vec![0u8; gmssl_sys::SM2_MAX_CIPHERTEXT_SIZE];
+    let mut out = vec![0u8; gmssl_rs_sys::SM2_MAX_CIPHERTEXT_SIZE];
     let mut outlen: usize = out.len();
     ok_or_library_error(
         unsafe {
-            gmssl_sys::sm2_encrypt(
+            gmssl_rs_sys::sm2_encrypt(
                 key.as_ptr(),
                 data.as_ptr(),
                 data.len(),
@@ -487,7 +487,7 @@ pub fn sm2_decrypt(key: &Sm2Key, ciphertext: &[u8]) -> Result<Vec<u8>, GmsslErro
     let mut outlen: usize = out.len();
     ok_or_library_error(
         unsafe {
-            gmssl_sys::sm2_decrypt(
+            gmssl_rs_sys::sm2_decrypt(
                 key.as_ptr(),
                 ciphertext.as_ptr(),
                 ciphertext.len(),
@@ -510,7 +510,7 @@ pub fn sm2_ecdh(key: &Sm2Key, peer_key: &Sm2Key) -> Result<[u8; 32], GmsslError>
     }
     let mut out = [0u8; 32];
     ok_or_library_error(
-        unsafe { gmssl_sys::sm2_do_ecdh(key.as_ptr(), peer_key.as_ptr(), out.as_mut_ptr()) },
+        unsafe { gmssl_rs_sys::sm2_do_ecdh(key.as_ptr(), peer_key.as_ptr(), out.as_mut_ptr()) },
         "sm2_do_ecdh",
     )?;
     Ok(out)

@@ -4,7 +4,7 @@
 // identity-based encryption (IBE) using bilinear pairings on BN curves.
 
 use std::mem::MaybeUninit;
-use gmssl_sys;
+use gmssl_rs_sys;
 
 use crate::error::{ok_or_library_error, verify_result, GmsslError};
 use crate::pem_helpers;
@@ -14,7 +14,7 @@ use crate::pem_helpers;
 // ============================================================================
 
 pub struct Sm9SignMasterKey {
-    key: gmssl_sys::SM9_SIGN_MASTER_KEY,
+    key: gmssl_rs_sys::SM9_SIGN_MASTER_KEY,
 }
 
 impl std::fmt::Debug for Sm9SignMasterKey {
@@ -28,7 +28,7 @@ impl Sm9SignMasterKey {
     pub fn generate() -> Result<Self, GmsslError> {
         let mut key = MaybeUninit::uninit();
         ok_or_library_error(
-            unsafe { gmssl_sys::sm9_sign_master_key_generate(key.as_mut_ptr()) },
+            unsafe { gmssl_rs_sys::sm9_sign_master_key_generate(key.as_mut_ptr()) },
             "sm9_sign_master_key_generate",
         )?;
         Ok(Sm9SignMasterKey {
@@ -43,7 +43,7 @@ impl Sm9SignMasterKey {
         let mut key = MaybeUninit::uninit();
         ok_or_library_error(
             unsafe {
-                gmssl_sys::sm9_sign_master_key_extract_key(
+                gmssl_rs_sys::sm9_sign_master_key_extract_key(
                     &self.key,
                     id_c.as_ptr(),
                     id.len(),
@@ -65,7 +65,7 @@ impl Sm9SignMasterKey {
         let mut key = MaybeUninit::uninit();
         let fp = unsafe { pem_helpers::file_from_bytes(pem_data)? };
         let ret = unsafe {
-            gmssl_sys::sm9_sign_master_key_info_decrypt_from_pem(
+            gmssl_rs_sys::sm9_sign_master_key_info_decrypt_from_pem(
                 key.as_mut_ptr(),
                 pass_c.as_ptr(),
                 fp,
@@ -84,7 +84,7 @@ impl Sm9SignMasterKey {
             .map_err(|_| GmsslError::InvalidInput("password contains NUL byte"))?;
         unsafe {
             pem_helpers::collect_to_bytes(|fp| {
-                gmssl_sys::sm9_sign_master_key_info_encrypt_to_pem(
+                gmssl_rs_sys::sm9_sign_master_key_info_encrypt_to_pem(
                     &self.key,
                     pass_c.as_ptr(),
                     fp,
@@ -99,7 +99,7 @@ impl Sm9SignMasterKey {
 // ============================================================================
 
 pub struct Sm9SignKey {
-    key: gmssl_sys::SM9_SIGN_KEY,
+    key: gmssl_rs_sys::SM9_SIGN_KEY,
     id: String,
 }
 
@@ -122,7 +122,7 @@ impl Sm9SignKey {
         let mut key = MaybeUninit::uninit();
         let fp = unsafe { pem_helpers::file_from_bytes(pem_data)? };
         let ret = unsafe {
-            gmssl_sys::sm9_sign_key_info_decrypt_from_pem(
+            gmssl_rs_sys::sm9_sign_key_info_decrypt_from_pem(
                 key.as_mut_ptr(),
                 pass_c.as_ptr(),
                 fp,
@@ -142,7 +142,7 @@ impl Sm9SignKey {
             .map_err(|_| GmsslError::InvalidInput("password contains NUL byte"))?;
         unsafe {
             pem_helpers::collect_to_bytes(|fp| {
-                gmssl_sys::sm9_sign_key_info_encrypt_to_pem(
+                gmssl_rs_sys::sm9_sign_key_info_encrypt_to_pem(
                     &self.key,
                     pass_c.as_ptr(),
                     fp,
@@ -160,11 +160,11 @@ impl Sm9SignKey {
 pub fn sm9_sign(key: &Sm9SignKey, data: &[u8]) -> Result<Vec<u8>, GmsslError> {
     let mut ctx = MaybeUninit::uninit();
     ok_or_library_error(
-        unsafe { gmssl_sys::sm9_sign_init(ctx.as_mut_ptr()) },
+        unsafe { gmssl_rs_sys::sm9_sign_init(ctx.as_mut_ptr()) },
         "sm9_sign_init",
     )?;
     ok_or_library_error(
-        unsafe { gmssl_sys::sm9_sign_update(ctx.as_mut_ptr(), data.as_ptr(), data.len()) },
+        unsafe { gmssl_rs_sys::sm9_sign_update(ctx.as_mut_ptr(), data.as_ptr(), data.len()) },
         "sm9_sign_update",
     )?;
 
@@ -172,7 +172,7 @@ pub fn sm9_sign(key: &Sm9SignKey, data: &[u8]) -> Result<Vec<u8>, GmsslError> {
     let mut siglen: usize = sig.len();
     ok_or_library_error(
         unsafe {
-            gmssl_sys::sm9_sign_finish(
+            gmssl_rs_sys::sm9_sign_finish(
                 ctx.as_mut_ptr(),
                 &key.key,
                 sig.as_mut_ptr(),
@@ -199,17 +199,17 @@ pub fn sm9_verify(
 
     let mut ctx = MaybeUninit::uninit();
     ok_or_library_error(
-        unsafe { gmssl_sys::sm9_verify_init(ctx.as_mut_ptr()) },
+        unsafe { gmssl_rs_sys::sm9_verify_init(ctx.as_mut_ptr()) },
         "sm9_verify_init",
     )?;
     ok_or_library_error(
-        unsafe { gmssl_sys::sm9_verify_update(ctx.as_mut_ptr(), data.as_ptr(), data.len()) },
+        unsafe { gmssl_rs_sys::sm9_verify_update(ctx.as_mut_ptr(), data.as_ptr(), data.len()) },
         "sm9_verify_update",
     )?;
 
     verify_result(
         unsafe {
-            gmssl_sys::sm9_verify_finish(
+            gmssl_rs_sys::sm9_verify_finish(
                 ctx.as_mut_ptr(),
                 sig.as_ptr(),
                 sig.len(),
@@ -227,7 +227,7 @@ pub fn sm9_verify(
 // ============================================================================
 
 pub struct Sm9EncMasterKey {
-    key: gmssl_sys::SM9_ENC_MASTER_KEY,
+    key: gmssl_rs_sys::SM9_ENC_MASTER_KEY,
 }
 
 impl std::fmt::Debug for Sm9EncMasterKey {
@@ -241,7 +241,7 @@ impl Sm9EncMasterKey {
     pub fn generate() -> Result<Self, GmsslError> {
         let mut key = MaybeUninit::uninit();
         ok_or_library_error(
-            unsafe { gmssl_sys::sm9_enc_master_key_generate(key.as_mut_ptr()) },
+            unsafe { gmssl_rs_sys::sm9_enc_master_key_generate(key.as_mut_ptr()) },
             "sm9_enc_master_key_generate",
         )?;
         Ok(Sm9EncMasterKey {
@@ -256,7 +256,7 @@ impl Sm9EncMasterKey {
         let mut key = MaybeUninit::uninit();
         ok_or_library_error(
             unsafe {
-                gmssl_sys::sm9_enc_master_key_extract_key(
+                gmssl_rs_sys::sm9_enc_master_key_extract_key(
                     &self.key,
                     id_c.as_ptr(),
                     id.len(),
@@ -278,7 +278,7 @@ impl Sm9EncMasterKey {
         let mut key = MaybeUninit::uninit();
         let fp = unsafe { pem_helpers::file_from_bytes(pem_data)? };
         let ret = unsafe {
-            gmssl_sys::sm9_enc_master_key_info_decrypt_from_pem(
+            gmssl_rs_sys::sm9_enc_master_key_info_decrypt_from_pem(
                 key.as_mut_ptr(),
                 pass_c.as_ptr(),
                 fp,
@@ -297,7 +297,7 @@ impl Sm9EncMasterKey {
             .map_err(|_| GmsslError::InvalidInput("password contains NUL byte"))?;
         unsafe {
             pem_helpers::collect_to_bytes(|fp| {
-                gmssl_sys::sm9_enc_master_key_info_encrypt_to_pem(
+                gmssl_rs_sys::sm9_enc_master_key_info_encrypt_to_pem(
                     &self.key,
                     pass_c.as_ptr(),
                     fp,
@@ -312,7 +312,7 @@ impl Sm9EncMasterKey {
 // ============================================================================
 
 pub struct Sm9EncKey {
-    key: gmssl_sys::SM9_ENC_KEY,
+    key: gmssl_rs_sys::SM9_ENC_KEY,
     id: String,
 }
 
@@ -335,7 +335,7 @@ impl Sm9EncKey {
         let mut key = MaybeUninit::uninit();
         let fp = unsafe { pem_helpers::file_from_bytes(pem_data)? };
         let ret = unsafe {
-            gmssl_sys::sm9_enc_key_info_decrypt_from_pem(
+            gmssl_rs_sys::sm9_enc_key_info_decrypt_from_pem(
                 key.as_mut_ptr(),
                 pass_c.as_ptr(),
                 fp,
@@ -355,7 +355,7 @@ impl Sm9EncKey {
             .map_err(|_| GmsslError::InvalidInput("password contains NUL byte"))?;
         unsafe {
             pem_helpers::collect_to_bytes(|fp| {
-                gmssl_sys::sm9_enc_key_info_encrypt_to_pem(
+                gmssl_rs_sys::sm9_enc_key_info_encrypt_to_pem(
                     &self.key,
                     pass_c.as_ptr(),
                     fp,
@@ -375,7 +375,7 @@ pub fn sm9_encrypt(
     id: &str,
     data: &[u8],
 ) -> Result<Vec<u8>, GmsslError> {
-    if data.len() > gmssl_sys::SM9_MAX_PLAINTEXT_SIZE {
+    if data.len() > gmssl_rs_sys::SM9_MAX_PLAINTEXT_SIZE {
         return Err(GmsslError::InvalidInput(
             "SM9 plaintext exceeds 255 bytes maximum",
         ));
@@ -383,11 +383,11 @@ pub fn sm9_encrypt(
     let id_c = std::ffi::CString::new(id)
         .map_err(|_| GmsslError::InvalidInput("ID contains NUL byte"))?;
 
-    let mut out = vec![0u8; gmssl_sys::SM9_MAX_CIPHERTEXT_SIZE];
+    let mut out = vec![0u8; gmssl_rs_sys::SM9_MAX_CIPHERTEXT_SIZE];
     let mut outlen: usize = out.len();
     ok_or_library_error(
         unsafe {
-            gmssl_sys::sm9_encrypt(
+            gmssl_rs_sys::sm9_encrypt(
                 &mpk.key,
                 id_c.as_ptr(),
                 id.len(),
@@ -414,7 +414,7 @@ pub fn sm9_decrypt(key: &Sm9EncKey, id: &str, ciphertext: &[u8]) -> Result<Vec<u
     let mut outlen: usize = out.len();
     ok_or_library_error(
         unsafe {
-            gmssl_sys::sm9_decrypt(
+            gmssl_rs_sys::sm9_decrypt(
                 &key.key,
                 id_c.as_ptr(),
                 id.len(),

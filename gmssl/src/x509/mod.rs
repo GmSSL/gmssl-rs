@@ -5,7 +5,7 @@
 
 use std::ptr;
 
-use gmssl_sys;
+use gmssl_rs_sys;
 
 use crate::error::{ok_or_library_error, verify_result, GmsslError};
 use crate::pem_helpers;
@@ -30,7 +30,7 @@ impl X509Cert {
             let mut cert_len: usize = 0;
             let mut in_ptr: *const u8 = der.as_ptr();
             let mut in_len: usize = der.len();
-            let ret = gmssl_sys::x509_cert_from_der(
+            let ret = gmssl_rs_sys::x509_cert_from_der(
                 &mut cert_ptr,
                 &mut cert_len,
                 &mut in_ptr,
@@ -52,7 +52,7 @@ impl X509Cert {
 
         let fp = unsafe { pem_helpers::file_from_bytes(pem_data)? };
         let ret = unsafe {
-            gmssl_sys::x509_cert_from_pem(buf.as_mut_ptr(), &mut len, buf.len(), fp)
+            gmssl_rs_sys::x509_cert_from_pem(buf.as_mut_ptr(), &mut len, buf.len(), fp)
         };
         unsafe { libc::fclose(fp) };
         ok_or_library_error(ret, "x509_cert_from_pem")?;
@@ -65,7 +65,7 @@ impl X509Cert {
     pub fn to_pem(&self) -> Result<Vec<u8>, GmsslError> {
         unsafe {
             pem_helpers::collect_to_bytes(|fp| {
-                gmssl_sys::x509_cert_to_pem(self.der.as_ptr(), self.der.len(), fp)
+                gmssl_rs_sys::x509_cert_to_pem(self.der.as_ptr(), self.der.len(), fp)
             })
         }
     }
@@ -81,7 +81,7 @@ impl X509Cert {
         let mut subj_len: usize = 0;
         unsafe {
             ok_or_library_error(
-                gmssl_sys::x509_cert_get_subject(
+                gmssl_rs_sys::x509_cert_get_subject(
                     self.der.as_ptr(),
                     self.der.len(),
                     &mut subj,
@@ -99,7 +99,7 @@ impl X509Cert {
         let mut issuer_len: usize = 0;
         unsafe {
             ok_or_library_error(
-                gmssl_sys::x509_cert_get_issuer(
+                gmssl_rs_sys::x509_cert_get_issuer(
                     self.der.as_ptr(),
                     self.der.len(),
                     &mut issuer,
@@ -122,14 +122,14 @@ impl X509Cert {
         let mut not_after: i64 = 0;
         let mut subject: *const u8 = ptr::null();
         let mut subject_len: usize = 0;
-        let mut pub_key: gmssl_sys::X509_KEY = unsafe { std::mem::zeroed() };
+        let mut pub_key: gmssl_rs_sys::X509_KEY = unsafe { std::mem::zeroed() };
         let mut sig_algor: i32 = 0;
         let mut signature: *const u8 = ptr::null();
         let mut signature_len: usize = 0;
 
         unsafe {
             ok_or_library_error(
-                gmssl_sys::x509_cert_get_details(
+                gmssl_rs_sys::x509_cert_get_details(
                     self.der.as_ptr(),
                     self.der.len(),
                     &mut version,
@@ -149,7 +149,7 @@ impl X509Cert {
                 "x509_cert_get_details",
             )?;
             // Clean up the X509_KEY (may contain heap-allocated data)
-            gmssl_sys::x509_key_cleanup(&mut pub_key);
+            gmssl_rs_sys::x509_key_cleanup(&mut pub_key);
             Ok(std::slice::from_raw_parts(serial, serial_len).to_vec())
         }
     }
@@ -165,14 +165,14 @@ impl X509Cert {
         let mut not_after: i64 = 0;
         let mut subject: *const u8 = ptr::null();
         let mut subject_len: usize = 0;
-        let mut pub_key: gmssl_sys::X509_KEY = unsafe { std::mem::zeroed() };
+        let mut pub_key: gmssl_rs_sys::X509_KEY = unsafe { std::mem::zeroed() };
         let mut sig_algor: i32 = 0;
         let mut signature: *const u8 = ptr::null();
         let mut signature_len: usize = 0;
 
         unsafe {
             ok_or_library_error(
-                gmssl_sys::x509_cert_get_details(
+                gmssl_rs_sys::x509_cert_get_details(
                     self.der.as_ptr(),
                     self.der.len(),
                     &mut version,
@@ -191,7 +191,7 @@ impl X509Cert {
                 ),
                 "x509_cert_get_details",
             )?;
-            gmssl_sys::x509_key_cleanup(&mut pub_key);
+            gmssl_rs_sys::x509_key_cleanup(&mut pub_key);
         }
         Ok((not_before, not_after))
     }
@@ -208,7 +208,7 @@ impl X509Cert {
 
         verify_result(
             unsafe {
-                gmssl_sys::x509_cert_verify_by_ca_cert(
+                gmssl_rs_sys::x509_cert_verify_by_ca_cert(
                     self.der.as_ptr(),
                     self.der.len(),
                     ca_cert.der.as_ptr(),
@@ -236,7 +236,7 @@ impl X509CertChain {
 
         let fp = unsafe { pem_helpers::file_from_bytes(pem_data)? };
         let ret = unsafe {
-            gmssl_sys::x509_certs_from_pem(buf.as_mut_ptr(), &mut len, buf.len(), fp)
+            gmssl_rs_sys::x509_certs_from_pem(buf.as_mut_ptr(), &mut len, buf.len(), fp)
         };
         unsafe { libc::fclose(fp) };
         ok_or_library_error(ret, "x509_certs_from_pem")?;
@@ -250,7 +250,7 @@ impl X509CertChain {
         let mut cnt: usize = 0;
         unsafe {
             ok_or_library_error(
-                gmssl_sys::x509_certs_get_count(self.der.as_ptr(), self.der.len(), &mut cnt),
+                gmssl_rs_sys::x509_certs_get_count(self.der.as_ptr(), self.der.len(), &mut cnt),
                 "x509_certs_get_count",
             )?;
         }
@@ -263,7 +263,7 @@ impl X509CertChain {
         let mut cert_len: usize = 0;
         unsafe {
             ok_or_library_error(
-                gmssl_sys::x509_certs_get_cert_by_index(
+                gmssl_rs_sys::x509_certs_get_cert_by_index(
                     self.der.as_ptr(),
                     self.der.len(),
                     index as i32,
@@ -282,7 +282,7 @@ impl X509CertChain {
     pub fn verify(&self, root_certs: &X509CertChain) -> Result<(), GmsslError> {
         ok_or_library_error(
             unsafe {
-                gmssl_sys::x509_certs_verify(
+                gmssl_rs_sys::x509_certs_verify(
                     self.der.as_ptr(),
                     self.der.len(),
                     0, // certs_type

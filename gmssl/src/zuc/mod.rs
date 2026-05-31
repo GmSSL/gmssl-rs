@@ -5,7 +5,7 @@
 
 use std::mem::MaybeUninit;
 
-use gmssl_sys;
+use gmssl_rs_sys;
 
 use crate::error::{ok_or_library_error, GmsslError};
 
@@ -15,7 +15,7 @@ use crate::error::{ok_or_library_error, GmsslError};
 /// for both encryption and decryption (XOR operation).
 #[derive(Debug)]
 pub struct Zuc {
-    state: MaybeUninit<gmssl_sys::ZUC_STATE>,
+    state: MaybeUninit<gmssl_rs_sys::ZUC_STATE>,
 }
 
 impl Zuc {
@@ -23,7 +23,7 @@ impl Zuc {
     pub fn new(key: &[u8; 16], iv: &[u8; 16]) -> Self {
         let mut state = MaybeUninit::uninit();
         unsafe {
-            gmssl_sys::zuc_init(state.as_mut_ptr(), key.as_ptr(), iv.as_ptr());
+            gmssl_rs_sys::zuc_init(state.as_mut_ptr(), key.as_ptr(), iv.as_ptr());
         }
         Zuc { state }
     }
@@ -34,7 +34,7 @@ impl Zuc {
     pub fn generate_keystream(&mut self, nwords: usize) -> Vec<u32> {
         let mut words = vec![0u32; nwords];
         unsafe {
-            gmssl_sys::zuc_generate_keystream(self.state.as_mut_ptr(), nwords, words.as_mut_ptr());
+            gmssl_rs_sys::zuc_generate_keystream(self.state.as_mut_ptr(), nwords, words.as_mut_ptr());
         }
         words
     }
@@ -45,7 +45,7 @@ impl Zuc {
     pub fn encrypt(&mut self, data: &[u8]) -> Vec<u8> {
         let mut out = vec![0u8; data.len()];
         unsafe {
-            gmssl_sys::zuc_encrypt(self.state.as_mut_ptr(), data.as_ptr(), data.len(), out.as_mut_ptr());
+            gmssl_rs_sys::zuc_encrypt(self.state.as_mut_ptr(), data.as_ptr(), data.len(), out.as_mut_ptr());
         }
         out
     }
@@ -62,7 +62,7 @@ impl Zuc {
 /// Produces a 32-bit (4-byte) MAC tag.
 #[derive(Debug)]
 pub struct ZucMac {
-    ctx: MaybeUninit<gmssl_sys::ZUC_MAC_CTX>,
+    ctx: MaybeUninit<gmssl_rs_sys::ZUC_MAC_CTX>,
 }
 
 impl ZucMac {
@@ -70,7 +70,7 @@ impl ZucMac {
     pub fn new(key: &[u8; 16], iv: &[u8; 16]) -> Self {
         let mut ctx = MaybeUninit::uninit();
         unsafe {
-            gmssl_sys::zuc_mac_init(ctx.as_mut_ptr(), key.as_ptr(), iv.as_ptr());
+            gmssl_rs_sys::zuc_mac_init(ctx.as_mut_ptr(), key.as_ptr(), iv.as_ptr());
         }
         ZucMac { ctx }
     }
@@ -78,7 +78,7 @@ impl ZucMac {
     /// Feed data into the MAC computation.
     pub fn update(&mut self, data: &[u8]) {
         unsafe {
-            gmssl_sys::zuc_mac_update(self.ctx.as_mut_ptr(), data.as_ptr(), data.len());
+            gmssl_rs_sys::zuc_mac_update(self.ctx.as_mut_ptr(), data.as_ptr(), data.len());
         }
     }
 
@@ -89,7 +89,7 @@ impl ZucMac {
     pub fn finish(&mut self, remainder: &[u8], nbits: usize) -> [u8; 4] {
         let mut mac = [0u8; 4];
         unsafe {
-            gmssl_sys::zuc_mac_finish(
+            gmssl_rs_sys::zuc_mac_finish(
                 self.ctx.as_mut_ptr(),
                 remainder.as_ptr(),
                 nbits,
@@ -103,7 +103,7 @@ impl ZucMac {
 /// ZUC-256 stream cipher (256-bit key variant).
 #[derive(Debug)]
 pub struct Zuc256 {
-    state: MaybeUninit<gmssl_sys::ZUC_STATE>,
+    state: MaybeUninit<gmssl_rs_sys::ZUC_STATE>,
 }
 
 impl Zuc256 {
@@ -111,7 +111,7 @@ impl Zuc256 {
     pub fn new(key: &[u8; 32], iv: &[u8; 23]) -> Self {
         let mut state = MaybeUninit::uninit();
         unsafe {
-            gmssl_sys::zuc256_init(state.as_mut_ptr(), key.as_ptr(), iv.as_ptr());
+            gmssl_rs_sys::zuc256_init(state.as_mut_ptr(), key.as_ptr(), iv.as_ptr());
         }
         Zuc256 { state }
     }
@@ -120,7 +120,7 @@ impl Zuc256 {
     pub fn generate_keystream(&mut self, nwords: usize) -> Vec<u32> {
         let mut words = vec![0u32; nwords];
         unsafe {
-            gmssl_sys::zuc256_generate_keystream(
+            gmssl_rs_sys::zuc256_generate_keystream(
                 self.state.as_mut_ptr(),
                 nwords,
                 words.as_mut_ptr(),
@@ -133,7 +133,7 @@ impl Zuc256 {
     pub fn encrypt(&mut self, data: &[u8]) -> Vec<u8> {
         let mut out = vec![0u8; data.len()];
         unsafe {
-            gmssl_sys::zuc_encrypt(self.state.as_mut_ptr(), data.as_ptr(), data.len(), out.as_mut_ptr());
+            gmssl_rs_sys::zuc_encrypt(self.state.as_mut_ptr(), data.as_ptr(), data.len(), out.as_mut_ptr());
         }
         out
     }
@@ -142,7 +142,7 @@ impl Zuc256 {
 /// ZUC streaming encryptor using init/update/finish pattern.
 #[derive(Debug)]
 pub struct ZucEncryptor {
-    ctx: MaybeUninit<gmssl_sys::ZUC_CTX>,
+    ctx: MaybeUninit<gmssl_rs_sys::ZUC_CTX>,
     inited: bool,
 }
 
@@ -151,7 +151,7 @@ impl ZucEncryptor {
     pub fn new(key: &[u8; 16], iv: &[u8; 16]) -> Result<Self, GmsslError> {
         let mut ctx = MaybeUninit::uninit();
         ok_or_library_error(
-            unsafe { gmssl_sys::zuc_encrypt_init(ctx.as_mut_ptr(), key.as_ptr(), iv.as_ptr()) },
+            unsafe { gmssl_rs_sys::zuc_encrypt_init(ctx.as_mut_ptr(), key.as_ptr(), iv.as_ptr()) },
             "zuc_encrypt_init",
         )?;
         Ok(ZucEncryptor { ctx, inited: true })
@@ -166,7 +166,7 @@ impl ZucEncryptor {
         let mut outlen: usize = 0;
         ok_or_library_error(
             unsafe {
-                gmssl_sys::zuc_encrypt_update(
+                gmssl_rs_sys::zuc_encrypt_update(
                     self.ctx.as_mut_ptr(),
                     input.as_ptr(),
                     input.len(),
@@ -190,7 +190,7 @@ impl ZucEncryptor {
         let mut outlen: usize = 0;
         ok_or_library_error(
             unsafe {
-                gmssl_sys::zuc_encrypt_finish(
+                gmssl_rs_sys::zuc_encrypt_finish(
                     self.ctx.as_mut_ptr(),
                     out.as_mut_ptr(),
                     &mut outlen,
