@@ -1,6 +1,11 @@
 use std::env;
 use std::path::PathBuf;
 
+/// GmSSL release tag that this version of the bindings was written against.
+const GMSSL_RELEASE_TAG: &str = "v3.1.1";
+const GMSSL_RELEASE_URL: &str =
+    "https://github.com/guanzhi/GmSSL/archive/refs/tags/v3.1.1.tar.gz";
+
 fn main() {
     // ========================================================================
     // 1. docs.rs special case — no libgmssl or cmake in sandbox, just emit
@@ -21,7 +26,7 @@ fn main() {
         assert!(
             lib_dir.exists(),
             "GMSSL_DIR={} but {}/ not found. \
-             Unset GMSSL_DIR to build GmSSL from the bundled submodule instead.",
+             Unset GMSSL_DIR to build GmSSL from source instead.",
             dir,
             lib_dir.display()
         );
@@ -33,54 +38,27 @@ fn main() {
     }
 
     // ========================================================================
-    // 3. Build GmSSL from the bundled git submodule via CMake
+    // 3. Locate or acquire GmSSL source
     // ========================================================================
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    let submodule_dir = manifest_dir.join("GmSSL");
-
-    // If the submodule directory exists but CMakeLists.txt is missing, the
-    // user likely cloned without --recursive. Try to auto-initialize.
-    if submodule_dir.exists() && !submodule_dir.join("CMakeLists.txt").exists() {
-        let workspace_root = manifest_dir
-            .parent()
-            .expect("gmssl-sys must live inside a workspace");
-        let status = std::process::Command::new("git")
-            .args(["submodule", "update", "--init", "--depth", "1"])
-            .current_dir(workspace_root)
-            .status()
-            .expect("failed to run 'git submodule update --init'. Is git installed?");
-        assert!(
-            status.success(),
-            "Failed to initialize GmSSL submodule at {}. \
-             Run `git submodule update --init` manually, \
-             or set GMSSL_DIR=/path/to/gmssl to use a pre-installed copy.",
-            submodule_dir.display()
-        );
-    }
-
-    // If the submodule is still missing, give a clear error.
-    assert!(
-        submodule_dir.join("CMakeLists.txt").exists(),
-        "GmSSL source not found at {}. \
-         Run `git submodule update --init` to fetch the C library, \
-         or set GMSSL_DIR=/path/to/gmssl to use a pre-installed copy.",
-        submodule_dir.display()
-    );
+    let source_dir = locate_gmssl_source(&manifest_dir);
 
     // Tell Cargo to re-run this script when GmSSL source files change.
     println!(
         "cargo:rerun-if-changed={}",
-        submodule_dir.join("CMakeLists.txt").display()
+        source_dir.join("CMakeLists.txt").display()
     );
     for watch_dir in &["src", "include"] {
-        let path = submodule_dir.join(watch_dir);
+        let path = source_dir.join(watch_dir);
         if path.exists() {
             println!("cargo:rerun-if-changed={}", path.display());
         }
     }
 
-    // --- Configure CMake ---
-    let mut cmake_cfg = cmake::Config::new(&submodule_dir);
+    // ========================================================================
+    // 4. Build GmSSL via CMake
+    // ========================================================================
+    let mut cmake_cfg = cmake::Config::new(&source_dir);
 
     // Build a static library so the final Rust binary has no runtime dep on
     // libgmssl.dylib / libgmssl.so.
@@ -93,17 +71,11 @@ fn main() {
         }
     }
 
-    // Disable optional GmSSL features that the Rust FFI bindings do not use.
-    // This keeps build times short.  Each can be re-enabled at build time via
-    // the corresponding GMSSL_ENABLE_<FEATURE>=ON environment variable.
-    //
-    // Core SM2 / SM3 / SM4 / SM9 / ZUC / X.509 are always compiled — they are
-    // not behind feature flags in GmSSL's CMakeLists.txt.
-    // Features needed by the Rust bindings — always ON by default.
+    // Needed by the Rust FFI bindings — always ON.
     cmake_cfg.define("ENABLE_SM2_PRIVATE_KEY_EXPORT", "ON");
 
-    // Optional GmSSL features not used by the Rust FFI bindings.
-    // Each can be re-enabled via the GMSSL_ENABLE_<FEATURE>=ON env var.
+    // Disable optional GmSSL features not used by the Rust bindings to keep
+    // build times short.  Each can be re-enabled via GMSSL_ENABLE_<F>=ON.
     let optional_features = &[
         "ENABLE_SHA1",
         "ENABLE_SHA2",
@@ -124,7 +96,6 @@ fn main() {
         "ENABLE_SDF",
         "ENABLE_SKF",
     ];
-
     for feature in optional_features {
         let env_var = format!("GMSSL_{}", feature);
         let value = env::var(&env_var).unwrap_or_else(|_| "OFF".to_string());
@@ -135,7 +106,7 @@ fn main() {
         }
     }
 
-    // Let the user pass arbitrary extra CMake -D flags.
+    // Arbitrary extra CMake -D flags.
     if let Ok(extra) = env::var("GMSSL_CMAKE_DEFINES") {
         for def in extra.split_whitespace() {
             if let Some(eq) = def.find('=') {
@@ -144,10 +115,11 @@ fn main() {
         }
     }
 
-    // --- Build ---
     let dst = cmake_cfg.build();
 
-    // --- Emit link directives ---
+    // ========================================================================
+    // 5. Emit link directives
+    // ========================================================================
     let lib_dir = dst.join("lib");
     assert!(
         lib_dir.exists(),
@@ -159,18 +131,16 @@ fn main() {
     println!("cargo:rustc-link-search=native={}", lib_dir.display());
     println!("cargo:rustc-link-lib=static=gmssl");
 
-    // Export the include path for potential bindgen usage.
     let include_dir = dst.join("include");
     if include_dir.exists() {
         println!("cargo:include={}", include_dir.display());
     }
 
-    // macOS: Security.framework is needed by GmSSL's rand_apple.c
+    // macOS: Security.framework needed by rand_apple.c
     if env::var("CARGO_CFG_TARGET_OS").unwrap_or_default() == "macos" {
         println!("cargo:rustc-link-lib=framework=Security");
     }
-
-    // Windows: link against system crypto libs that GmSSL uses
+    // Windows: system crypto libs used by GmSSL
     if env::var("CARGO_CFG_TARGET_OS").unwrap_or_default() == "windows" {
         println!("cargo:rustc-link-lib=bcrypt");
         println!("cargo:rustc-link-lib=ncrypt");
@@ -179,4 +149,97 @@ fn main() {
     println!("cargo:rerun-if-env-changed=GMSSL_DIR");
     println!("cargo:rerun-if-env-changed=GMSSL_CMAKE_DEFINES");
     println!("cargo:rerun-if-changed=build.rs");
+}
+
+/// Locate the GmSSL source tree, downloading it if necessary.
+///
+/// Priority:
+/// 1. Git submodule at `gmssl-sys/GmSSL/` (git clone / local dev)
+/// 2. Downloaded tarball in `OUT_DIR` (crates.io / `cargo install`)
+fn locate_gmssl_source(manifest_dir: &PathBuf) -> PathBuf {
+    let submodule_dir = manifest_dir.join("GmSSL");
+
+    // --- Submodule present: use it ---
+    if submodule_dir.join("CMakeLists.txt").exists() {
+        return submodule_dir;
+    }
+
+    // --- Submodule missing but directory exists (empty): try init ---
+    if submodule_dir.exists() {
+        let workspace_root = manifest_dir
+            .parent()
+            .expect("gmssl-rs-sys must live inside a workspace");
+        if let Ok(status) = std::process::Command::new("git")
+            .args(["submodule", "update", "--init", "--depth", "1"])
+            .current_dir(workspace_root)
+            .status()
+        {
+            if status.success() && submodule_dir.join("CMakeLists.txt").exists() {
+                return submodule_dir;
+            }
+        }
+    }
+
+    // --- Submodule not present (e.g. crates.io install): download release ---
+    let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
+    let tarball_dir = out_dir.join("gmssl-src");
+    let tarball_path = out_dir.join(format!("GmSSL-{}.tar.gz", GMSSL_RELEASE_TAG));
+    let extract_dir = out_dir.join(format!("GmSSL-{}", GMSSL_RELEASE_TAG));
+
+    // Download if not already cached.
+    if !tarball_path.exists() {
+        eprintln!("Downloading GmSSL {} source from GitHub...", GMSSL_RELEASE_TAG);
+        let status = std::process::Command::new("curl")
+            .args([
+                "-L",
+                "-o",
+                tarball_path.to_str().unwrap(),
+                GMSSL_RELEASE_URL,
+            ])
+            .status()
+            .expect("failed to run curl. Is curl installed?");
+        assert!(status.success(), "Failed to download GmSSL source");
+    }
+
+    // Extract if not already done.
+    if !extract_dir.join("CMakeLists.txt").exists() {
+        eprintln!("Extracting GmSSL {} source...", GMSSL_RELEASE_TAG);
+        let _ = std::fs::create_dir_all(&tarball_dir);
+
+        // Use `tar xzf` (available on macOS, Linux, and Windows via Git Bash).
+        let status = std::process::Command::new("tar")
+            .args([
+                "xzf",
+                tarball_path.to_str().unwrap(),
+                "-C",
+                tarball_dir.to_str().unwrap(),
+            ])
+            .status()
+            .expect("failed to run tar. Is tar installed?");
+        assert!(status.success(), "Failed to extract GmSSL source");
+    }
+
+    let extracted = tarball_dir.join(format!("GmSSL-{}", GMSSL_RELEASE_TAG));
+    if !extracted.join("CMakeLists.txt").exists() {
+        // GitHub tarballs sometimes nest inside `GmSSL-<tag>/`
+        // or `GmSSL-<tag>/GmSSL-<tag>/`. Find the real root.
+        let found = std::fs::read_dir(&tarball_dir)
+            .ok()
+            .and_then(|mut entries| {
+                entries.find_map(|e| {
+                    let p = e.ok()?.path();
+                    p.join("CMakeLists.txt").exists().then_some(p)
+                })
+            });
+        if let Some(path) = found {
+            return path;
+        }
+        panic!(
+            "GmSSL source not found after extracting {}. \
+             Please install GmSSL manually and set GMSSL_DIR.",
+            GMSSL_RELEASE_URL
+        );
+    }
+
+    extracted
 }

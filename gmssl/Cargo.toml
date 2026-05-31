@@ -11,7 +11,7 @@ keywords = ["cryptography", "gmssl", "sm2", "sm3", "sm4", "sm9", "zuc"]
 categories = ["cryptography", "api-bindings"]
 
 [dependencies]
-gmssl-rs-sys = { path = "../gmssl-sys" }
+gmssl-rs-sys = { path = "../gmssl-sys", version = "0.1" }
 libc = "0.2"
 
 [dev-dependencies]
