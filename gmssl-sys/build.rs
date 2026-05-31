@@ -120,7 +120,20 @@ fn main() {
         }
     }
 
+    // Windows MSVC: GmSSL hardcodes CMAKE_INSTALL_PREFIX to
+    // "C:/Program Files/GmSSL" in its CMakeLists.txt, overriding
+    // the value that the cmake crate passes on the command line.
+    // Patch it out so the library lands in OUT_DIR.
+    if env::var("CARGO_CFG_TARGET_OS").unwrap_or_default() == "windows" {
+        patch_cmake_install_prefix(&source_dir);
+    }
+
     let dst = cmake_cfg.build();
+
+    // Restore the original CMakeLists.txt that was patched above.
+    if env::var("CARGO_CFG_TARGET_OS").unwrap_or_default() == "windows" {
+        restore_cmake_lists(&source_dir);
+    }
 
     // ========================================================================
     // 5. Emit link directives
@@ -151,6 +164,45 @@ fn main() {
     println!("cargo:rerun-if-env-changed=GMSSL_DIR");
     println!("cargo:rerun-if-env-changed=GMSSL_CMAKE_DEFINES");
     println!("cargo:rerun-if-changed=build.rs");
+}
+
+/// On Windows MSVC, GmSSL's CMakeLists.txt hardcodes
+/// `set(CMAKE_INSTALL_PREFIX "C:/Program Files/GmSSL")` which
+/// overrides the value we pass via `-D`.  Patch it temporarily
+/// during the build and restore the original after.
+fn patch_cmake_install_prefix(source_dir: &PathBuf) {
+    let cmake_lists = source_dir.join("CMakeLists.txt");
+    let original = std::fs::read_to_string(&cmake_lists).unwrap_or_else(|e| {
+        panic!("Failed to read {}: {}", cmake_lists.display(), e);
+    });
+
+    let patched = original.replace(
+        "set(CMAKE_INSTALL_PREFIX \"C:/Program Files/GmSSL\")",
+        "# PATCHED by gmssl-rs build.rs — removed hardcoded install prefix\n# set(CMAKE_INSTALL_PREFIX \"C:/Program Files/GmSSL\")",
+    );
+
+    if patched != original {
+        eprintln!("Patched GmSSL CMakeLists.txt: removed hardcoded CMAKE_INSTALL_PREFIX");
+        // Save original and write patched version
+        let backup = source_dir.join("CMakeLists.txt.bak");
+        std::fs::write(&backup, &original).unwrap_or_else(|e| {
+            panic!("Failed to backup {}: {}", cmake_lists.display(), e);
+        });
+        std::fs::write(&cmake_lists, &patched).unwrap_or_else(|e| {
+            // Try to restore backup on failure
+            let _ = std::fs::copy(&backup, &cmake_lists);
+            panic!("Failed to write {}: {}", cmake_lists.display(), e);
+        });
+    }
+}
+
+/// Restore the original CMakeLists.txt after a successful build.
+fn restore_cmake_lists(source_dir: &PathBuf) {
+    let backup = source_dir.join("CMakeLists.txt.bak");
+    if backup.exists() {
+        let _ = std::fs::copy(&backup, source_dir.join("CMakeLists.txt"));
+        let _ = std::fs::remove_file(&backup);
+    }
 }
 
 /// Find the directory containing the compiled `gmssl` library.
