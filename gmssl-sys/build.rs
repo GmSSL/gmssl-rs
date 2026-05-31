@@ -93,8 +93,6 @@ fn main() {
         "ENABLE_SPHINCS",
         "ENABLE_KYBER",
         "ENABLE_TLS_DEBUG",
-        "ENABLE_SDF",
-        "ENABLE_SKF",
     ];
     for feature in optional_features {
         let env_var = format!("GMSSL_{}", feature);
@@ -104,6 +102,13 @@ fn main() {
         } else {
             cmake_cfg.define(feature, "OFF");
         }
+    }
+
+    // Windows MSVC: GmSSL's dylib.h uses #ifdef WIN32 but MSVC only
+    // defines _WIN32. Without this define, SDF/SKF source files fail
+    // to compile because they try to #include <dlfcn.h> (POSIX-only).
+    if env::var("CARGO_CFG_TARGET_OS").unwrap_or_default() == "windows" {
+        cmake_cfg.cflag("-DWIN32");
     }
 
     // Arbitrary extra CMake -D flags.
