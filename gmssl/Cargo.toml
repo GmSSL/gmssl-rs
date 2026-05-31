@@ -1,6 +1,6 @@
 [package]
 name = "gmssl-rs"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Safe, idiomatic Rust wrapper for the GmSSL cryptographic library (SM2/SM3/SM4/SM9/ZUC/X.509)"
 repository = "https://github.com/GmSSL/gmssl-rs"
