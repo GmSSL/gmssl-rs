@@ -4,6 +4,12 @@ version = "0.1.0"
 edition = "2021"
 links = "gmssl"
 description = "Low-level FFI bindings to the GmSSL cryptographic library"
+repository = "https://github.com/guanzhi/GmSSL-Rust"
+homepage = "https://github.com/guanzhi/GmSSL-Rust"
+license = "Apache-2.0"
 
 [dependencies]
 libc = "0.2"
+
+[build-dependencies]
+cmake = "0.1"

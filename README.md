@@ -20,18 +20,36 @@
 ## 安装要求
 
 - Rust 1.70+
-- [GmSSL 3.1+](https://github.com/guanzhi/GmSSL) 已安装
+- [CMake](https://cmake.org) 3.10+
+- C 编译器（gcc、clang 或 MSVC）
+- Git
 
-### 安装 GmSSL
+### 快速开始
+
+GmSSL C 库以 **Git 子模块** 的形式包含在本项目中，`cargo build` 会自动通过 CMake 编译 GmSSL，无需手动安装。
 
 ```bash
-# macOS
-brew install gmssl
+# 克隆时初始化子模块（推荐）
+git clone --recursive https://github.com/guanzhi/GmSSL-Rust.git
+cd GmSSL-Rust
 
-# 或从源码编译
-git clone https://github.com/guanzhi/GmSSL.git
-cd GmSSL && mkdir build && cd build
-cmake .. && make -j$(nproc) && sudo make install
+# 如果已克隆但未初始化子模块
+git submodule update --init
+
+# 构建（自动编译 GmSSL C 库并链接为静态库）
+cargo build
+
+# 运行测试
+cargo test
+```
+
+### 可选：使用系统预装的 GmSSL
+
+如果你已在系统中安装了 GmSSL（例如通过 `brew install gmssl`），可以设置 `GMSSL_DIR` 环境变量跳过子模块编译：
+
+```bash
+export GMSSL_DIR=/usr/local     # 或 /opt/homebrew（Apple Silicon Mac）
+cargo build
 ```
 
 ## 快速开始
@@ -198,9 +216,12 @@ rand_bytes(&mut buf).unwrap();
 ```
 GmSSL-Rust/
 ├── Cargo.toml              # 工作空间配置
+├── .gitmodules             # Git 子模块配置（声明对 GmSSL C 库的依赖）
 ├── gmssl-sys/               # 底层 FFI 绑定
-│   ├── build.rs             # 自动检测 libgmssl
-│   └── src/lib.rs           # extern "C" 声明与 repr(C) 类型
+│   ├── Cargo.toml          # build-dependencies: cmake
+│   ├── build.rs            # CMake 自动构建 libgmssl.a
+│   ├── GmSSL/              # Git 子模块：GmSSL C 源码（v3.1.1）
+│   └── src/lib.rs          # extern "C" 声明与 repr(C) 类型
 └── gmssl/                   # 安全 Rust 封装
     └── src/
         ├── error.rs         # 错误类型

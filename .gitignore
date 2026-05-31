@@ -1,3 +1,7 @@
 /target
 **/*.rs.bk
 Cargo.lock
+
+# GmSSL submodule build artifacts (the cmake crate builds into OUT_DIR
+# inside target/, but manual cmake runs inside the submodule would land here)
+gmssl-sys/GmSSL/build/

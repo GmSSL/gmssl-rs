@@ -1,0 +1,3 @@
+[submodule "gmssl-sys/GmSSL"]
+	path = gmssl-sys/GmSSL
+	url = https://github.com/guanzhi/GmSSL.git
