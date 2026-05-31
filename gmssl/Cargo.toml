@@ -3,11 +3,11 @@ name = "gmssl-rs"
 version = "0.1.0"
 edition = "2021"
 description = "Safe, idiomatic Rust wrapper for the GmSSL cryptographic library (SM2/SM3/SM4/SM9/ZUC/X.509)"
-repository = "https://github.com/guanzhi/gmssl-rs"
-homepage = "https://github.com/guanzhi/gmssl-rs"
+repository = "https://github.com/GmSSL/gmssl-rs"
+homepage = "https://github.com/GmSSL/gmssl-rs"
 documentation = "https://docs.rs/gmssl-rs"
 license = "Apache-2.0"
-keywords = ["cryptography", "gmssl", "sm2", "sm3", "sm4", "sm9", "zuc"]
+keywords = ["cryptography", "gmssl", "sm2", "sm3", "sm4"]
 categories = ["cryptography", "api-bindings"]
 
 [dependencies]

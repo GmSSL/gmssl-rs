@@ -30,7 +30,7 @@ GmSSL C 库以 **Git 子模块** 的形式包含在本项目中，`cargo build` 
 
 ```bash
 # 克隆时初始化子模块（推荐）
-git clone --recursive https://github.com/guanzhi/gmssl-rs.git
+git clone --recursive https://github.com/GmSSL/gmssl-rs.git
 cd gmssl-rs
 
 # 如果已克隆但未初始化子模块
