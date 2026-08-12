@@ -10,6 +10,28 @@ documentation = "https://docs.rs/gmssl-rs-sys"
 license = "Apache-2.0"
 readme = "../README.md"
 
+[features]
+default = []
+# Forwarded to the corresponding GmSSL `ENABLE_*` CMake options.
+sha1 = []
+sha2 = []
+aes = []
+aes-ccm = []
+chacha20 = []
+sm4-ecb = []
+sm4-ofb = []
+sm4-cfb = []
+sm4-ccm = []
+sm4-xts = []
+sm4-cbc-mac = []
+secp256r1 = []
+lms = []
+xmss = []
+sphincs = []
+kyber = []
+tls = []
+tls-debug = []
+
 [dependencies]
 libc = "0.2"
 

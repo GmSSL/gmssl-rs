@@ -52,6 +52,11 @@ export GMSSL_DIR=/usr/local     # 或 /opt/homebrew（Apple Silicon Mac）
 cargo build
 ```
 
+### 可选：启用 GmSSL 扩展功能
+
+`gmssl-rs-sys` 支持通过 Cargo feature 或 `GMSSL_ENABLE_*` 环境变量开启
+GmSSL 扩展功能。
+
 ## 快速开始
 
 在 `Cargo.toml` 中添加依赖：

@@ -1,10 +1,31 @@
 use std::env;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// GmSSL release tag that this version of the bindings was written against.
 const GMSSL_RELEASE_TAG: &str = "v3.2.0";
-const GMSSL_RELEASE_URL: &str =
-    "https://github.com/guanzhi/GmSSL/archive/refs/tags/v3.2.0.tar.gz";
+const GMSSL_RELEASE_URL: &str = "https://github.com/guanzhi/GmSSL/archive/refs/tags/v3.2.0.tar.gz";
+
+/// Cargo features and their corresponding GmSSL CMake options.
+const OPTIONAL_FEATURES: &[(&str, &str)] = &[
+    ("sha1", "ENABLE_SHA1"),
+    ("sha2", "ENABLE_SHA2"),
+    ("aes", "ENABLE_AES"),
+    ("aes-ccm", "ENABLE_AES_CCM"),
+    ("chacha20", "ENABLE_CHACHA20"),
+    ("sm4-ecb", "ENABLE_SM4_ECB"),
+    ("sm4-ofb", "ENABLE_SM4_OFB"),
+    ("sm4-cfb", "ENABLE_SM4_CFB"),
+    ("sm4-ccm", "ENABLE_SM4_CCM"),
+    ("sm4-xts", "ENABLE_SM4_XTS"),
+    ("sm4-cbc-mac", "ENABLE_SM4_CBC_MAC"),
+    ("secp256r1", "ENABLE_SECP256R1"),
+    ("lms", "ENABLE_LMS"),
+    ("xmss", "ENABLE_XMSS"),
+    ("sphincs", "ENABLE_SPHINCS"),
+    ("kyber", "ENABLE_KYBER"),
+    ("tls", "ENABLE_TLS"),
+    ("tls-debug", "ENABLE_TLS_DEBUG"),
+];
 
 fn main() {
     // ========================================================================
@@ -75,35 +96,27 @@ fn main() {
     cmake_cfg.define("ENABLE_SM2_PRIVATE_KEY_EXPORT", "ON");
 
     // Disable optional GmSSL features not used by the Rust bindings to keep
-    // build times short.  Each can be re-enabled via GMSSL_ENABLE_<F>=ON.
-    let optional_features = &[
-        "ENABLE_SHA1",
-        "ENABLE_SHA2",
-        "ENABLE_AES",
-        "ENABLE_AES_CCM",
-        "ENABLE_CHACHA20",
-        "ENABLE_SM4_ECB",
-        "ENABLE_SM4_OFB",
-        "ENABLE_SM4_CFB",
-        "ENABLE_SM4_CCM",
-        "ENABLE_SM4_XTS",
-        "ENABLE_SM4_CBC_MAC",
-        "ENABLE_SECP256R1",
-        "ENABLE_LMS",
-        "ENABLE_XMSS",
-        "ENABLE_SPHINCS",
-        "ENABLE_KYBER",
-        "ENABLE_TLS",
-        "ENABLE_TLS_DEBUG",
-    ];
-    for feature in optional_features {
-        let env_var = format!("GMSSL_{}", feature);
-        let value = env::var(&env_var).unwrap_or_else(|_| "OFF".to_string());
-        if value == "ON" || value == "on" || value == "1" {
-            cmake_cfg.define(feature, "ON");
-        } else {
-            cmake_cfg.define(feature, "OFF");
-        }
+    // build times short. Each option can be enabled with either its Cargo
+    // feature or the existing GMSSL_ENABLE_<F>=ON environment variable.
+    for &(cargo_feature, cmake_option) in OPTIONAL_FEATURES {
+        let legacy_env_var = format!("GMSSL_{cmake_option}");
+        println!("cargo:rerun-if-env-changed={legacy_env_var}");
+
+        let enabled_by_env = matches!(env::var(&legacy_env_var).as_deref(), Ok("ON" | "on" | "1"));
+        let cargo_env_var = format!(
+            "CARGO_FEATURE_{}",
+            cargo_feature.replace('-', "_").to_ascii_uppercase()
+        );
+        let enabled_by_cargo = env::var_os(cargo_env_var).is_some();
+
+        cmake_cfg.define(
+            cmake_option,
+            if enabled_by_env || enabled_by_cargo {
+                "ON"
+            } else {
+                "OFF"
+            },
+        );
     }
 
     // Windows MSVC: GmSSL's dylib.h uses #ifdef WIN32 but MSVC only
@@ -173,7 +186,7 @@ fn main() {
 /// `set(CMAKE_INSTALL_PREFIX "C:/Program Files/GmSSL")` which
 /// overrides the value we pass via `-D`.  Patch it temporarily
 /// during the build and restore the original after.
-fn patch_cmake_install_prefix(source_dir: &PathBuf) {
+fn patch_cmake_install_prefix(source_dir: &Path) {
     let cmake_lists = source_dir.join("CMakeLists.txt");
     let original = std::fs::read_to_string(&cmake_lists).unwrap_or_else(|e| {
         panic!("Failed to read {}: {}", cmake_lists.display(), e);
@@ -200,7 +213,7 @@ fn patch_cmake_install_prefix(source_dir: &PathBuf) {
 }
 
 /// Restore the original CMakeLists.txt after a successful build.
-fn restore_cmake_lists(source_dir: &PathBuf) {
+fn restore_cmake_lists(source_dir: &Path) {
     let backup = source_dir.join("CMakeLists.txt.bak");
     if backup.exists() {
         let _ = std::fs::copy(&backup, source_dir.join("CMakeLists.txt"));
@@ -213,7 +226,7 @@ fn restore_cmake_lists(source_dir: &PathBuf) {
 /// MSVC multi-config generators place libraries in `lib/<Config>/`
 /// (e.g. `lib/Debug/gmssl.lib`), while single-config generators
 /// (Makefiles, Ninja) use `lib/` directly.
-fn find_lib_dir(prefix: &PathBuf) -> PathBuf {
+fn find_lib_dir(prefix: &Path) -> PathBuf {
     // Try the simple layout first (Makefiles, Ninja).
     let lib = prefix.join("lib");
     if lib.join("libgmssl.a").exists()
@@ -242,7 +255,7 @@ fn find_lib_dir(prefix: &PathBuf) -> PathBuf {
 /// Priority:
 /// 1. `GMSSL_SOURCE_DIR`, for local development with an explicit source tree.
 /// 2. Downloaded release tarball in `OUT_DIR`.
-fn locate_gmssl_source(_manifest_dir: &PathBuf) -> PathBuf {
+fn locate_gmssl_source(_manifest_dir: &Path) -> PathBuf {
     if let Ok(source_dir) = env::var("GMSSL_SOURCE_DIR") {
         let path = PathBuf::from(&source_dir);
         assert!(
@@ -264,7 +277,10 @@ fn locate_gmssl_source(_manifest_dir: &PathBuf) -> PathBuf {
 
     // Download if not already cached.
     if !tarball_path.exists() {
-        eprintln!("Downloading GmSSL {} source from GitHub...", GMSSL_RELEASE_TAG);
+        eprintln!(
+            "Downloading GmSSL {} source from GitHub...",
+            GMSSL_RELEASE_TAG
+        );
         let status = std::process::Command::new("curl")
             .args([
                 "-L",
