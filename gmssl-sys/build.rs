@@ -32,6 +32,7 @@ fn main() {
         );
         println!("cargo:rustc-link-search=native={}", lib_dir.display());
         println!("cargo:rustc-link-lib=gmssl");
+        emit_platform_link_libs();
         println!("cargo:rerun-if-env-changed=GMSSL_DIR");
         println!("cargo:rerun-if-changed=build.rs");
         return;
@@ -153,20 +154,27 @@ fn main() {
         println!("cargo:include={}", include_dir.display());
     }
 
-    // macOS: Security.framework needed by rand_apple.c
-    if env::var("CARGO_CFG_TARGET_OS").unwrap_or_default() == "macos" {
-        println!("cargo:rustc-link-lib=framework=Security");
-    }
-    // Windows: system crypto libs used by GmSSL
-    if env::var("CARGO_CFG_TARGET_OS").unwrap_or_default() == "windows" {
-        println!("cargo:rustc-link-lib=advapi32");
-        println!("cargo:rustc-link-lib=bcrypt");
-        println!("cargo:rustc-link-lib=ncrypt");
-    }
+    emit_platform_link_libs();
 
     println!("cargo:rerun-if-env-changed=GMSSL_DIR");
     println!("cargo:rerun-if-env-changed=GMSSL_CMAKE_DEFINES");
     println!("cargo:rerun-if-changed=build.rs");
+}
+
+/// Emit the OS libraries a GmSSL build may reference — Security.framework
+/// for `rand_apple.c` (macOS) and the CryptoAPI libs for `rand_win.c`
+/// (Windows). Required both for a library built here and for a prebuilt
+/// one supplied via `GMSSL_DIR`; harmless when nothing pulls them in.
+fn emit_platform_link_libs() {
+    match env::var("CARGO_CFG_TARGET_OS").unwrap_or_default().as_str() {
+        "macos" => println!("cargo:rustc-link-lib=framework=Security"),
+        "windows" => {
+            println!("cargo:rustc-link-lib=advapi32");
+            println!("cargo:rustc-link-lib=bcrypt");
+            println!("cargo:rustc-link-lib=ncrypt");
+        }
+        _ => {}
+    }
 }
 
 /// On Windows MSVC, GmSSL's CMakeLists.txt hardcodes
