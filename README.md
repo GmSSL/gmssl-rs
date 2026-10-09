@@ -54,7 +54,7 @@ cargo build
 
 ```toml
 [dependencies]
-gmssl-rs = "0.1"
+gmssl-rs = "0.2"
 ```
 
 ### SM3 哈希
