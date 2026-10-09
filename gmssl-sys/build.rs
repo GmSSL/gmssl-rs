@@ -262,9 +262,9 @@ fn locate_gmssl_source(_manifest_dir: &PathBuf) -> PathBuf {
         return path;
     }
 
-    // Always use the release tarball by default. The repository still contains
-    // a historical submodule, but it can drift from the release tag that these
-    // bindings are generated for.
+    // Always use the release tarball by default: it matches the release tag
+    // these bindings are generated for, and it keeps crates.io installs (and
+    // git-dependency installs) free of submodules.
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
     let tarball_dir = out_dir.join("gmssl-src");
     let tarball_path = out_dir.join(format!("GmSSL-{}.tar.gz", GMSSL_RELEASE_TAG));
